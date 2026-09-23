@@ -1,0 +1,5 @@
+- name: Run preflight checks on all nodes
+  hosts: kubernetes_cluster
+  gather_facts: false
+  roles:
+    - preflight

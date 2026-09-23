@@ -1,0 +1,9 @@
+private_network_cidr: "10.0.0.0/16"
+
+expected_private_ips:
+  tinytasks-platform-control-plane: "10.0.0.10"
+  tinytasks-platform-worker-1: "10.0.0.11"
+  tinytasks-platform-worker-2: "10.0.0.12"
+
+expected_private_interface: "enp7s0"
+expected_public_interface: "eth0"

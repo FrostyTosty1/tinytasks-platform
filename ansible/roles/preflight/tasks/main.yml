@@ -1,0 +1,12 @@
+- name: Make preflight checks
+  block:
+    - name: Run preflight checks
+      ansible.builtin.include_tasks: checks.yml
+
+  rescue:
+    - name: Reboot cluster nodes
+      ansible.builtin.reboot:
+        post_reboot_delay: 5
+
+    - name: Run preflight checks after reboot
+      ansible.builtin.include_tasks: checks.yml

@@ -1,0 +1,61 @@
+- name: Wait for cloud-init to complete
+  ansible.builtin.command: cloud-init status --wait
+  changed_when: false
+
+- name: Gather fresh system facts
+  ansible.builtin.setup:
+
+- name: Check OS and kernel requirements
+  ansible.builtin.assert:
+    that:
+      - ansible_facts["distribution"] == "Ubuntu"
+      - ansible_facts["distribution_version"] == "24.04"
+      - ansible_facts["kernel"] is version("5.10", ">=")
+
+- name: Check hostname
+  ansible.builtin.assert:
+    that:
+      - ansible_facts["hostname"] in expected_private_ips
+
+- name: Check private interface
+  ansible.builtin.assert:
+    that:
+      - ansible_facts[expected_private_interface]["ipv4"]["address"] == expected_private_ips[ansible_facts["hostname"]]
+      - ansible_facts[expected_private_interface]["active"]
+      - ansible_facts[expected_private_interface]["ipv4"]["prefix"] == "32"
+
+- name: Get private network route
+  ansible.builtin.command: ip route show {{ private_network_cidr }}
+  register: route_check
+  changed_when: false
+
+- name: Check private network route
+  ansible.builtin.assert:
+    that:
+      - ('dev ' ~ expected_private_interface) in route_check.stdout
+
+- name: Check default route
+  ansible.builtin.assert:
+    that:
+      - ansible_facts["default_ipv4"]["interface"] == expected_public_interface
+
+- name: Get routes to peer nodes
+  ansible.builtin.command: ip route get {{ item }}
+  register: route_list_check
+  changed_when: false
+  when: item != expected_private_ips[ansible_facts["hostname"]]
+  loop: "{{ expected_private_ips.values() | list }}"
+
+- name: Check routes to peer nodes
+  ansible.builtin.assert:
+    that:
+      - ('dev ' ~ expected_private_interface) in item.stdout
+      - ('src ' ~ expected_private_ips[ansible_facts["hostname"]]) in item.stdout
+  when: item.skipped is not defined
+  loop: "{{ route_list_check.results }}"
+
+- name: Check connectivity to peer nodes
+  ansible.builtin.command: ping -c 3 -W 2 {{ item }}
+  changed_when: false
+  when: item != expected_private_ips[ansible_facts["hostname"]]
+  loop: "{{ expected_private_ips.values() | list }}"
