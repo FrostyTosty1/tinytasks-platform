@@ -1,0 +1,37 @@
+- name: Get active swap
+  ansible.builtin.command: swapon --noheadings --show=NAME 
+  register: swap_check
+  changed_when: false
+
+- name: Check that swap is disabled
+  ansible.builtin.assert:
+    that:
+      - swap_check.stdout == ""
+
+- name: Get swap entries from fstab
+  ansible.builtin.command: grep -nE '^[[:space:]]*[^#].*[[:space:]]swap[[:space:]]' /etc/fstab
+  register: swap_check_fstab
+  changed_when: false
+  failed_when: swap_check_fstab.rc > 1
+
+- name: Check swap entries from fstab
+  ansible.builtin.assert:
+    that:
+      - swap_check_fstab.rc == 1
+
+- name: Enable IPv4 forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_file: /etc/sysctl.d/99-kubernetes.conf
+    sysctl_set: true
+
+- name: Get IPv4 forwarding parameter
+  ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+  register: ipv4_check
+  changed_when: false
+
+- name: Check IPv4 forwarding parameter
+  ansible.builtin.assert:
+    that:
+      - ipv4_check.stdout == '1'

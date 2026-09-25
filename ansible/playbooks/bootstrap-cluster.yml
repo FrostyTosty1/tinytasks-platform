@@ -2,4 +2,6 @@
   hosts: kubernetes_cluster
   gather_facts: false
   roles:
-    - preflight
+    - role: preflight
+    - role: node_prerequisites
+      become: true
