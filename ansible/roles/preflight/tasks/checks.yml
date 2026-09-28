@@ -20,8 +20,10 @@
 - name: Check private interface
   ansible.builtin.assert:
     that:
-      - ansible_facts[expected_private_interface]["ipv4"]["address"] == expected_private_ips[ansible_facts["hostname"]]
+      - expected_private_interface in ansible_facts
+      - '"ipv4" in ansible_facts[expected_private_interface]'
       - ansible_facts[expected_private_interface]["active"]
+      - ansible_facts[expected_private_interface]["ipv4"]["address"] == expected_private_ips[ansible_facts["hostname"]]
       - ansible_facts[expected_private_interface]["ipv4"]["prefix"] == "32"
 
 - name: Get private network route
@@ -37,6 +39,8 @@
 - name: Check default route
   ansible.builtin.assert:
     that:
+      - '"default_ipv4" in ansible_facts'
+      - '"interface" in ansible_facts["default_ipv4"]'
       - ansible_facts["default_ipv4"]["interface"] == expected_public_interface
 
 - name: Get routes to peer nodes
@@ -51,7 +55,7 @@
     that:
       - ('dev ' ~ expected_private_interface) in item.stdout
       - ('src ' ~ expected_private_ips[ansible_facts["hostname"]]) in item.stdout
-  when: item.skipped is not defined
+  when: item is not skipped
   loop: "{{ route_list_check.results }}"
 
 - name: Check connectivity to peer nodes

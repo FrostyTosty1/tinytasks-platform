@@ -7,6 +7,8 @@
     - name: Reboot cluster nodes
       ansible.builtin.reboot:
         post_reboot_delay: 5
+      become: true
 
     - name: Run preflight checks after reboot
       ansible.builtin.include_tasks: checks.yml
+      

@@ -9,7 +9,7 @@
       - swap_check.stdout == ""
 
 - name: Get swap entries from fstab
-  ansible.builtin.command: grep -nE '^[[:space:]]*[^#].*[[:space:]]swap[[:space:]]' /etc/fstab
+  ansible.builtin.command: grep -nE '^[[:space:]]*[^#[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+swap[[:space:]]' /etc/fstab
   register: swap_check_fstab
   changed_when: false
   failed_when: swap_check_fstab.rc > 1
