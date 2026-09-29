@@ -1,0 +1,47 @@
+- name: Install containerd
+  ansible.builtin.apt:
+    name: containerd
+    update_cache: true
+
+- name: Create containerd directory and set permissions
+  ansible.builtin.file:
+    path: /etc/containerd
+    mode: '0755'
+    state: directory
+
+- name: Get containerd default config
+  ansible.builtin.command: containerd config default
+  register: containerd_config_default
+  changed_when: false
+
+- name: Create containerd config file
+  ansible.builtin.copy:
+    content: "{{ containerd_config_default.stdout | replace('SystemdCgroup = false', 'SystemdCgroup = true') }}"
+    dest: /etc/containerd/config.toml
+  register: containerd_config_copy_result
+
+- name: Enable and manage containerd service
+  ansible.builtin.systemd_service:
+    name: containerd
+    state: "{{ 'restarted' if containerd_config_copy_result.changed else 'started' }}"
+    enabled: true
+
+- name: Get containerd socket facts
+  ansible.builtin.stat:
+    path: /run/containerd/containerd.sock
+  register: socket_facts
+
+- name: Check containerd socket
+  ansible.builtin.assert:
+    that:
+      - socket_facts.stat.exists and socket_facts.stat.issock
+
+- name: Get loaded containerd plugins
+  ansible.builtin.command: ctr plugins ls
+  register: loaded_containerd_plugins
+  changed_when: false
+
+- name: Check loaded containerd plugins
+  ansible.builtin.assert:
+    that:
+      - loaded_containerd_plugins.stdout is search('(?m)^io\.containerd\.(?:grpc\.v1[ \t]+cri|cri\.v1[ \t]+runtime)[ \t]+\S+[ \t]+ok[ \t]*$')

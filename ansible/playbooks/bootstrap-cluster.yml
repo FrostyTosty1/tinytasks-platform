@@ -5,3 +5,5 @@
     - role: preflight
     - role: node_prerequisites
       become: true
+    - role: containerd
+      become: true
