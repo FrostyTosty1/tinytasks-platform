@@ -1,4 +1,4 @@
-- name: Run preflight checks on all nodes
+- name: Bootstrap Kubernetes nodes
   hosts: kubernetes_cluster
   gather_facts: false
   roles:
@@ -6,4 +6,6 @@
     - role: node_prerequisites
       become: true
     - role: containerd
+      become: true
+    - role: k8s_packages
       become: true

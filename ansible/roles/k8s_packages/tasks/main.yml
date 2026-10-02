@@ -1,0 +1,88 @@
+- name: Install ca-certificates, curl, gpg
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gpg
+    update_cache: true
+
+- name: Configure APT to use IPv4
+  ansible.builtin.copy:
+    content: 'Acquire::ForceIPv4 "true";'
+    dest: /etc/apt/apt.conf.d/99force-ipv4
+    mode: '0644'
+
+- name: Create APT keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Kubernetes signing key
+  ansible.builtin.command: curl -4 -fsSL --retry 5 https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version.split('.')[:2] | join('.') }}/deb/Release.key -o /etc/apt/keyrings/kubernetes-release.key
+  args:
+    creates: /etc/apt/keyrings/kubernetes-release.key
+
+- name: Create Kubernetes APT keyring
+  ansible.builtin.command: gpg --batch --yes --dearmor --output /etc/apt/keyrings/kubernetes-apt-keyring.gpg /etc/apt/keyrings/kubernetes-release.key
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: Set Kubernetes APT keyring permissions
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    state: file
+    mode: '0644'
+
+- name: Configure Kubernetes APT repository
+  ansible.builtin.copy:
+    content: |
+      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version.split('.')[:2] | join('.') }}/deb/ /
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    mode: '0644'
+
+- name: Update APT cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Get available kubeadm versions
+  ansible.builtin.command: apt-cache madison kubeadm
+  register: kubeadm_ver
+  changed_when: false
+
+- name: Find Kubernetes package version matches
+  ansible.builtin.set_fact:
+    kubeadm_version_matches: "{{ kubeadm_ver.stdout_lines | select('search', '^\\s*kubeadm\\s*\\|\\s*' ~ (kubernetes_version | regex_escape) ~ '-') | list }}"
+
+- name: Verify Kubernetes package version match was found
+  ansible.builtin.assert:
+    that:
+      - kubeadm_version_matches is defined
+      - kubeadm_version_matches | length > 0
+    fail_msg: "Kubernetes version {{ kubernetes_version }} was not found in APT repository"
+
+- name: Set Kubernetes package version
+  ansible.builtin.set_fact:
+    kubernetes_package_version: "{{ (kubeadm_version_matches | first | split('|'))[1] | trim }}"
+
+- name: Install Kubernetes packages
+  ansible.builtin.apt:
+      name:
+        - kubelet={{ kubernetes_package_version }}
+        - kubeadm={{ kubernetes_package_version }}
+        - kubectl={{ kubernetes_package_version }}
+
+- name: Hold Kubernetes packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Enable and start kubelet
+  ansible.builtin.systemd_service:
+    name: kubelet
+    enabled: true
+    state: started
