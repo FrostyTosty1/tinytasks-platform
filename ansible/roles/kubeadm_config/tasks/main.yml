@@ -1,0 +1,9 @@
+- name: Render kubeadm configuration
+  ansible.builtin.template:
+    src: kubeadm-config.yaml.j2
+    dest: /root/kubeadm-config.yaml
+    mode: '0600'
+
+- name: Validate kubeadm configuration
+  ansible.builtin.command: kubeadm config validate --config /root/kubeadm-config.yaml
+  changed_when: false

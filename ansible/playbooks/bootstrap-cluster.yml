@@ -9,3 +9,10 @@
       become: true
     - role: k8s_packages
       become: true
+
+- name: Configure Kubernetes control plane
+  hosts: control_plane
+  gather_facts: false
+  roles:
+    - role: kubeadm_config
+      become: true
