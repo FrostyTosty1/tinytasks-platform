@@ -1,0 +1,4 @@
+- name: Initialize the control plane
+  ansible.builtin.command: kubeadm init --config /root/kubeadm-config.yaml
+  args:
+    creates: /etc/kubernetes/admin.conf

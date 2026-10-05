@@ -16,3 +16,5 @@
   roles:
     - role: kubeadm_config
       become: true
+    - role: init_control_plane
+      become: true
