@@ -18,3 +18,5 @@
       become: true
     - role: init_control_plane
       become: true
+    - role: control_plane_post_init
+      become: true

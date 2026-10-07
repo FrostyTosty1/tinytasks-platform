@@ -1,0 +1,38 @@
+- name: Get control plane node internal IP
+  ansible.builtin.command: kubectl get node {{ control_plane_hostname }} -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: cp_node_ip
+  changed_when: false
+
+- name: Verify control plane node internal IP
+  ansible.builtin.assert:
+    that:
+      - cp_node_ip.stdout == expected_private_ips[control_plane_hostname]
+
+- name: Get control plane node taints
+  ansible.builtin.command: kubectl get node {{ control_plane_hostname }} -o jsonpath='{range .spec.taints[*]}{.key}{":"}{.effect}{"\n"}{end}'
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: cp_taints
+  changed_when: false
+
+- name: Verify control plane isolation taint
+  ansible.builtin.assert:
+    that:
+      - "'node-role.kubernetes.io/control-plane:NoSchedule' in cp_taints.stdout_lines"
+
+- name: Get bootstrap token list
+  ansible.builtin.command: kubeadm token list
+  register: bootstrap_token_list
+  changed_when: false
+  no_log: true
+
+- name: Extract bootstrap token ID
+  ansible.builtin.set_fact:
+    bootstrap_token_id: "{{ bootstrap_token_list.stdout_lines[1].split()[0].split('.')[0] }}"
+  when: bootstrap_token_list.stdout_lines | length > 1
+
+- name: Delete bootstrap token
+  ansible.builtin.command: kubeadm token delete {{ bootstrap_token_id }}
+  when: bootstrap_token_list.stdout_lines | length > 1
