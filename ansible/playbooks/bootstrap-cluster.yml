@@ -20,3 +20,5 @@
       become: true
     - role: control_plane_post_init
       become: true
+    - role: calico
+      become: true

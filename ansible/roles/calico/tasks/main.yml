@@ -1,0 +1,74 @@
+- name: Apply Calico CRDs
+  ansible.builtin.command: kubectl apply --server-side -f https://raw.githubusercontent.com/projectcalico/calico/v{{ calico_version }}/manifests/v1_crd_projectcalico_org.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: Apply Tigera Operator
+  ansible.builtin.command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v{{ calico_version }}/manifests/tigera-operator.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: Wait for Tigera Operator
+  ansible.builtin.command: kubectl rollout status --namespace tigera-operator deployment/tigera-operator --timeout=5m
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+
+- name: Render Calico installation manifest
+  ansible.builtin.template:
+    src: calico-installation.yaml.j2
+    dest: /root/calico-installation.yaml
+    mode: '0600'
+
+- name: Apply Calico custom resources
+  ansible.builtin.command: kubectl apply -f /root/calico-installation.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: Wait for TigeraStatus resources
+  ansible.builtin.command: kubectl get tigerastatus {{ item }}
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: tigera_status_result
+  until: tigera_status_result.rc == 0
+  retries: 20
+  delay: 30
+  loop: 
+    - apiserver
+    - calico
+    - goldmane
+    - ippools
+    - kubeproxy-monitor
+    - tiers
+    - whisker
+  changed_when: false
+
+- name: Wait for Calico availability
+  ansible.builtin.command: kubectl wait --for=condition=Available tigerastatus --all --timeout=10m
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+
+- name: Wait for control plane readiness
+  ansible.builtin.command: kubectl wait --for=condition=Ready node/{{ control_plane_hostname }} --timeout=5m
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+
+- name: Wait for CoreDNS rollout
+  ansible.builtin.command: kubectl rollout status --namespace kube-system deployment/coredns --timeout=5m
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+
+- name: Get kube-proxy DaemonSet status
+  ansible.builtin.command: kubectl get daemonset kube-proxy --namespace kube-system -o jsonpath='{.status.desiredNumberScheduled}{" "}{.status.numberReady}'
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: kube_proxy_daemonset_result
+  changed_when: false
+  failed_when: kube_proxy_daemonset_result.rc != 0 and 'NotFound' not in kube_proxy_daemonset_result.stderr
+
+- name: Verify kube-proxy is disabled
+  ansible.builtin.assert:
+    that: kube_proxy_daemonset_result.stdout == "0 0" or kube_proxy_daemonset_result.rc != 0 and 'NotFound' in kube_proxy_daemonset_result.stderr
