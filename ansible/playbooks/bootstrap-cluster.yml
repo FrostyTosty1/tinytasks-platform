@@ -22,3 +22,5 @@
       become: true
     - role: calico
       become: true
+    - role: prepare_worker_join
+      become: true

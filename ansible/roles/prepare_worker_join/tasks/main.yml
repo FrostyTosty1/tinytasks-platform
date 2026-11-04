@@ -1,0 +1,25 @@
+- name: Generate bootstrap token
+  ansible.builtin.command: kubeadm token generate
+  register: join_token_result
+  changed_when: false
+  no_log: true
+
+- name: Check bootstrap token
+  ansible.builtin.assert:
+    that:
+      - join_token_result.stdout | length > 0
+  no_log: true
+
+- name: Create bootstrap token
+  ansible.builtin.command: kubeadm token create {{ join_token_result.stdout }} --ttl 30m --print-join-command
+  register: join_command
+  no_log: true
+
+- name: Set CA cert hash
+  ansible.builtin.set_fact:
+    ca_cert_hash: "{{ join_command.stdout | regex_search('(?<=--discovery-token-ca-cert-hash )sha256:[0-9a-f]+') }}"
+
+- name: Check CA cert hash
+  ansible.builtin.assert:
+    that:
+      - ca_cert_hash is match('^sha256:[0-9a-f]{64}$')
