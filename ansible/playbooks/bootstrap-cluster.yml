@@ -24,3 +24,10 @@
       become: true
     - role: prepare_worker_join
       become: true
+
+- name: Configure Kubernetes workers
+  hosts: workers
+  gather_facts: false
+  roles:
+    - role: join_workers
+      become: true
