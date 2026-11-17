@@ -1,0 +1,24 @@
+- name: Wait for Kubernetes cluster nodes to be Ready
+  ansible.builtin.command: >-
+    kubectl wait --for=condition=Ready
+    node/tinytasks-platform-control-plane
+    node/tinytasks-platform-worker-1
+    node/tinytasks-platform-worker-2
+    --timeout=5m
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+  
+- name: Get Kubernetes cluster node addresses
+  ansible.builtin.command: kubectl get node {{ item }} -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: cluster_node_addresses
+  changed_when: false
+  loop: "{{ expected_private_ips.keys() | list }}"
+
+- name: Check Kubernetes cluster node addresses
+  ansible.builtin.assert:
+    that:
+      - expected_private_ips[item.item] == item.stdout
+  loop: "{{ cluster_node_addresses.results }}"

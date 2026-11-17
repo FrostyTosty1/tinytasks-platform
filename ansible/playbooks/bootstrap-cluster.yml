@@ -31,3 +31,10 @@
   roles:
     - role: join_workers
       become: true
+
+- name: Verify Kubernetes cluster nodes
+  hosts: control_plane
+  gather_facts: false
+  roles:
+    - role: verify_cluster_nodes
+      become: true
