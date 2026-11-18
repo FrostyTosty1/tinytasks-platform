@@ -38,3 +38,10 @@
   roles:
     - role: verify_cluster_nodes
       become: true
+
+- name: Finalize Kubernetes cluster bootstrap
+  hosts: control_plane
+  gather_facts: false
+  roles:
+    - role: finalize_cluster_bootstrap
+      become: true

@@ -1,0 +1,17 @@
+- name: Delete bootstrap token
+  ansible.builtin.command: kubectl delete secret bootstrap-token-{{ hostvars['cp'].join_token_result.stdout.split('.')[0] }} --namespace kube-system --ignore-not-found
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  no_log: true
+
+- name: Wait for Calico DaemonSet rollout
+  ansible.builtin.command: kubectl rollout status --namespace calico-system daemonset/calico-node --timeout=10m
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+
+- name: Wait for CoreDNS rollout
+  ansible.builtin.command: kubectl rollout status --namespace kube-system deployment/coredns --timeout=5m
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
